@@ -13,7 +13,7 @@ verdicts side by side, e.g.:
     "Web content seems legitimate, URL seems phishing."
 
 - Content-based track: 43 features parsed from the fetched page's HTML/DOM.
-- URL-based track: 40 features computed directly from the URL string alone
+- URL-based track: 38 features computed directly from the URL string alone
   (no WHOIS lookup, no live page fetch required) - so it always runs, even
   when the page itself cannot be reached.
 - Each track's verdict includes an expandable "Why this result?" panel
@@ -328,7 +328,7 @@ def extract_content_features(soup):
 
 
 # =============================================================================
-# URL-BASED FEATURE EXTRACTION (40 features)
+# URL-BASED FEATURE EXTRACTION (38 features)
 # ------------------------------------------------------------------------
 # Carried over unchanged from feature_extractor.py / the URL training
 # notebook, so the feature values here line up exactly with what
@@ -557,9 +557,18 @@ def has_fragment(url):
 
 # Column order matches url_random_forest_model.pkl's feature_names_in_
 # exactly - do not reorder.
+#
+# NOTE: Has_Unicode_Domain and Brand_Similarity were removed from this list
+# (2026-08-19) because the currently deployed url_random_forest_model.pkl
+# was never retrained after those two columns were added to the feature
+# pipeline - it raises "Feature names unseen at fit time" for both. If you
+# retrain the model on the extended feature set, add them back here (and to
+# extract_url_features() and URL_FEATURE_DISPLAY below) in their original
+# positions: Has_Unicode_Domain right after Has_Sensitive_Word, and
+# Brand_Similarity at the end.
 URL_FEATURE_COLUMNS = [
     "URL_Length", "Path_Depth", "Has_IP", "Is_Shortened",
-    "Has_Prefix_Suffix", "Dot_Count", "Has_Sensitive_Word", "Has_Unicode_Domain",
+    "Has_Prefix_Suffix", "Dot_Count", "Has_Sensitive_Word",
     "Domain_Length", "Path_Length", "Query_Length",
     "Digit_Count", "Letter_Count", "Hyphen_Count", "Slash_Count",
     "Underscore_Count", "Question_Count", "Equal_Count", "Ampersand_Count",
@@ -568,7 +577,7 @@ URL_FEATURE_COLUMNS = [
     "Contains_Login", "Contains_Verify", "Contains_Account",
     "Contains_Security", "Contains_Password", "Contains_Payment",
     "Has_Percent_Encoding", "Has_Punycode", "URL_Entropy", "Domain_Entropy",
-    "Domain_Digit_Ratio", "Domain_Special_Char_Ratio", "Domain_Hyphen_Count", "Brand_Similarity",
+    "Domain_Digit_Ratio", "Domain_Special_Char_Ratio", "Domain_Hyphen_Count",
 ]
 
 
@@ -582,7 +591,7 @@ def ensure_trailing_slash(url: str) -> str:
 
 
 def extract_url_features(url):
-    """Extract the 40-feature vector for a single URL, in
+    """Extract the 38-feature vector for a single URL, in
     URL_FEATURE_COLUMNS order, and return it as a single-row DataFrame ready
     for the URL model's .predict(). Pure string processing - no network
     call, so this always succeeds even when the page is unreachable."""
@@ -591,7 +600,7 @@ def extract_url_features(url):
     lexical = [
         url_length(url), path_depth(url), has_ip(url), is_shortened_url(url),
         has_prefix_suffix(url), count_dots(url), has_sensitive_word(url),
-        has_unicode_domain(url), get_domain_length(url), get_path_length(url),
+        get_domain_length(url), get_path_length(url),
         get_query_length(url),
     ]
     characters = [
@@ -611,7 +620,7 @@ def extract_url_features(url):
         has_percent_encoding(url), has_punycode(url), url_entropy(url), domain_entropy(url),
     ]
     domain = [
-        digit_ratio(url), special_char_ratio(url), domain_hyphen_count(url), brand_similarity(url),
+        digit_ratio(url), special_char_ratio(url), domain_hyphen_count(url),
     ]
 
     values = lexical + characters + structure + suspicious_patterns + obfuscation + domain
@@ -642,7 +651,6 @@ URL_FEATURE_DISPLAY = {
     "Has_Prefix_Suffix": ("Hyphen in Domain", lambda v: "Yes" if v else "No"),
     "Dot_Count": ("Number of Dots", lambda v: f"{int(v)}"),
     "Has_Sensitive_Word": ("Sensitive Keyword in Domain", lambda v: "Yes" if v else "No"),
-    "Has_Unicode_Domain": ("Non-ASCII Characters in Domain", lambda v: "Yes" if v else "No"),
     "Domain_Length": ("Domain Length", lambda v: f"{int(v)} characters"),
     "Path_Length": ("Path Length", lambda v: f"{int(v)} characters"),
     "Query_Length": ("Query String Length", lambda v: f"{int(v)} characters"),
@@ -674,7 +682,6 @@ URL_FEATURE_DISPLAY = {
     "Domain_Digit_Ratio": ("Proportion of Digits in Domain", lambda v: f"{v:.0%}"),
     "Domain_Special_Char_Ratio": ("Proportion of Special Characters in Domain", lambda v: f"{v:.0%}"),
     "Domain_Hyphen_Count": ("Hyphens in Domain", lambda v: f"{int(v)}"),
-    "Brand_Similarity": ("Similarity to a Known Brand", lambda v: "Not currently computed (placeholder feature)"),
 }
 
 CONTENT_FEATURE_DISPLAY = {
@@ -1146,7 +1153,7 @@ def main():
             "trained classifier suites:"
         )
         st.markdown("- **Content-based** — 43 features from the page's HTML/DOM")
-        st.markdown("- **URL-based** — 40 features from the URL's structure alone "
+        st.markdown("- **URL-based** — 38 features from the URL's structure alone "
                      "(no live fetch needed, so it always runs)")
         st.write(
             "The two verdicts are shown separately on purpose - a disagreement "
